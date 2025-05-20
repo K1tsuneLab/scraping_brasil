@@ -1,0 +1,9 @@
+requests==2.31.0
+pandas==2.2.0
+python-dotenv==1.0.1
+tqdm==4.66.2
+loguru==0.7.2
+pydantic==2.6.3
+python-dateutil==2.8.2
+aiohttp==3.9.3
+asyncio==3.4.3 
