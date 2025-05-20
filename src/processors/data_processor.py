@@ -6,13 +6,23 @@ from typing import List
 from loguru import logger
 from ..models.legislative_process import LegislativeProcess
 
+# Define Google Drive path
+GOOGLE_DRIVE_PATH = Path("/Users/jona/Google Drive/My Drive/Kitsune/Fase1_Estructuracion_base/Brasil/json")
+
 class DataProcessor:
     """Process and store legislative process data."""
     
-    def __init__(self, data_dir: str = "data"):
-        self.data_dir = Path(data_dir)
-        self.raw_dir = self.data_dir / "raw"
-        self.processed_dir = self.data_dir / "processed"
+    def __init__(self, data_dir: str | None = None):
+        if data_dir is None:
+            # Use Google Drive paths
+            self.data_dir = GOOGLE_DRIVE_PATH
+            self.raw_dir = self.data_dir / "json"
+            self.processed_dir = self.data_dir / "processed"
+        else:
+            # Use local paths
+            self.data_dir = Path(data_dir)
+            self.raw_dir = self.data_dir / "raw"
+            self.processed_dir = self.data_dir / "processed"
         
         # Create directories if they don't exist
         self.raw_dir.mkdir(parents=True, exist_ok=True)
@@ -69,4 +79,6 @@ class DataProcessor:
         self.save_processed_data(df, year)
         
         logger.info(f"Successfully processed and saved data for year {year}")
-        logger.info(f"Total processes: {len(processes)}") 
+        logger.info(f"Total processes: {len(processes)}")
+
+processor = DataProcessor()  # This will use Google Drive path 
