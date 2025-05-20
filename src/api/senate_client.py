@@ -33,15 +33,7 @@ class SenateAPIClient:
                 
                 # Parse response using Pydantic model
                 api_response = APIResponse(**data)
-                
-                # Combine both lists of processes
-                all_processes = []
-                if api_response.ListaMateriasTramitando:
-                    all_processes.extend(api_response.ListaMateriasTramitando)
-                if api_response.ListaMateriasNaoTramitando:
-                    all_processes.extend(api_response.ListaMateriasNaoTramitando)
-                
-                return all_processes
+                return api_response.get_processes()
                 
         except aiohttp.ClientError as e:
             logger.error(f"Error fetching data for year {year}: {str(e)}")
@@ -62,7 +54,7 @@ class SenateAPIClient:
                 # Filter processes by date range
                 filtered_processes = [
                     p for p in processes 
-                    if start_date <= p.data_apresentacao <= end_date
+                    if p.data_apresentacao and start_date <= p.data_apresentacao <= end_date
                 ]
                 all_processes.extend(filtered_processes)
                 logger.info(f"Successfully fetched {len(filtered_processes)} processes for year {year}")

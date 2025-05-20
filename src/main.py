@@ -20,9 +20,9 @@ logger.add(
 )
 
 async def main():
-    # Define date range - just 5 days for testing
-    end_date = datetime.now()
-    start_date = end_date - timedelta(days=5)
+    # Define date range - using 2023 dates for testing
+    end_date = datetime(2023, 2, 6)  # February 6, 2023
+    start_date = datetime(2023, 2, 1)  # February 1, 2023
     
     logger.info(f"Starting data extraction from {start_date} to {end_date}")
     
@@ -39,7 +39,7 @@ async def main():
                 return
             
             # Process and save data for each year
-            years = sorted(set(p.ano for p in processes))
+            years = sorted(set(p.ano for p in processes if p.ano is not None))
             for year in years:
                 year_processes = [p for p in processes if p.ano == year]
                 processor.process_and_save(year_processes, year)

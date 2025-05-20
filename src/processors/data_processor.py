@@ -24,7 +24,7 @@ class DataProcessor:
         filename = self.raw_dir / f"legislative_processes_{year}_{timestamp}.json"
         
         # Convert to JSON-serializable format
-        data = [process.model_dump() for process in processes]
+        data = [process.dict() for process in processes]
         
         with open(filename, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2, default=str)
@@ -33,7 +33,7 @@ class DataProcessor:
     
     def process_to_dataframe(self, processes: List[LegislativeProcess]) -> pd.DataFrame:
         """Convert legislative processes to a pandas DataFrame."""
-        data = [process.model_dump() for process in processes]
+        data = [process.dict() for process in processes]
         df = pd.DataFrame(data)
         
         # Convert datetime columns

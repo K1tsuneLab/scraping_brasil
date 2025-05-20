@@ -1,15 +1,16 @@
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field
+from loguru import logger
 
 class LegislativeProcess(BaseModel):
     """Model for legislative process data from the Senate API."""
-    id: int
-    sigla: str
-    numero: int
-    ano: int
-    data_apresentacao: datetime
-    descricao: str
+    id: Optional[int] = None
+    sigla: Optional[str] = None
+    numero: Optional[int] = None
+    ano: Optional[int] = None
+    data_apresentacao: Optional[datetime] = None
+    descricao: Optional[str] = None
     autor: Optional[str] = None
     ementa: Optional[str] = None
     situacao: Optional[str] = None
@@ -20,14 +21,29 @@ class LegislativeProcess(BaseModel):
 
 class APIResponse(BaseModel):
     """Model for the API response structure."""
-    ListaMateriasTramitando: List[LegislativeProcess]
-    ListaMateriasNaoTramitando: Optional[List[LegislativeProcess]] = None
-    Sigla: Optional[str] = None
-    Numero: Optional[int] = None
-    Ano: Optional[int] = None
-    Data: Optional[datetime] = None
-    Descricao: Optional[str] = None
-    Autoria: Optional[str] = None
-    Ementa: Optional[str] = None
-    Situacao: Optional[str] = None
-    LinkInteiroTeor: Optional[str] = None 
+    ListaMateriasTramitando: Optional[List[Dict[str, Any]]] = None
+    ListaMateriasNaoTramitando: Optional[List[Dict[str, Any]]] = None
+    
+    def get_processes(self) -> List[LegislativeProcess]:
+        """Convert the raw response into a list of LegislativeProcess objects."""
+        processes = []
+        
+        if self.ListaMateriasTramitando:
+            for item in self.ListaMateriasTramitando:
+                try:
+                    process = LegislativeProcess(**item)
+                    processes.append(process)
+                except Exception as e:
+                    logger.error(f"Error parsing process: {str(e)}")
+                    continue
+                    
+        if self.ListaMateriasNaoTramitando:
+            for item in self.ListaMateriasNaoTramitando:
+                try:
+                    process = LegislativeProcess(**item)
+                    processes.append(process)
+                except Exception as e:
+                    logger.error(f"Error parsing process: {str(e)}")
+                    continue
+                    
+        return processes 
