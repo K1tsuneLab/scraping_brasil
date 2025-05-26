@@ -3,6 +3,7 @@ import argparse
 from datetime import datetime, timedelta
 from loguru import logger
 import sys
+import json
 from pathlib import Path
 
 # Add the project root to Python path
@@ -11,6 +12,7 @@ sys.path.append(str(project_root))
 
 from src.api.senate_client import SenateAPIClient
 from src.processors.data_processor import DataProcessor
+from src.utils.translator import translate_text_pt_to_es, translate_json_pt_to_es, translate_file_pt_to_es
 
 # Configure logger
 logger.add(
@@ -19,6 +21,9 @@ logger.add(
     retention="10 days",
     level="DEBUG"
 )
+
+# Import translation functionality
+from src.utils.translator import translate_text_pt_to_es, translate_json_pt_to_es, translate_file_pt_to_es
 
 async def extract_api_data(start_date=None, end_date=None):
     """Extract legislative process data from the Senate API."""
@@ -77,6 +82,31 @@ async def extract_pdf_text(structured=False):
         from src.extract_pdf_text import process_pdf_files
     await process_pdf_files()
 
+async def translate_text(file_path=None, output_path=None, text=None):
+    """
+    Translate text from Portuguese to Spanish.
+    
+    If file_path is provided, translates the JSON file.
+    If text is provided, translates the text string directly.
+    """
+    try:
+        if file_path:
+            logger.info(f"Translating file: {file_path}")
+            output_file = await translate_file_pt_to_es(file_path, output_path)
+            logger.info(f"Translation saved to: {output_file}")
+            return output_file
+        elif text:
+            logger.info("Translating provided text")
+            translated_text = await translate_text_pt_to_es(text)
+            logger.info("Text translation completed")
+            return translated_text
+        else:
+            logger.error("No input provided for translation")
+            return None
+    except Exception as e:
+        logger.error(f"Error during translation: {str(e)}")
+        raise
+
 async def main():
     """Main function to parse arguments and execute the requested task."""
     parser = argparse.ArgumentParser(description="Brazilian Legislative Data Processing Tool")
@@ -96,6 +126,12 @@ async def main():
     text_parser = subparsers.add_parser("extract-text", help="Extract text from PDFs")
     text_parser.add_argument("--structured", action="store_true", help="Use structured extraction with metadata")
     
+    # Translation command
+    translate_parser = subparsers.add_parser("translate", help="Translate text or files from Portuguese to Spanish")
+    translate_parser.add_argument("--file", help="Path to the JSON file to translate", default=None)
+    translate_parser.add_argument("--output", help="Path to save the translated file", default=None)
+    translate_parser.add_argument("--text", help="Text to translate", default=None)
+    
     # Parse arguments
     args = parser.parse_args()
     
@@ -113,6 +149,11 @@ async def main():
         await download_pdfs()
     elif args.command == "extract-text":
         await extract_pdf_text(structured=args.structured)
+    elif args.command == "translate":
+        file_path = args.file if args.file else None
+        output_path = args.output if args.output else None
+        text = args.text if args.text else None
+        await translate_text(file_path=file_path, output_path=output_path, text=text)
     else:
         # Default to API extraction if no command provided
         logger.info("No command specified. Running default data extraction.")
