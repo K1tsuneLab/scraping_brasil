@@ -1,4 +1,5 @@
 import asyncio
+import argparse
 from datetime import datetime, timedelta
 from loguru import logger
 import sys
@@ -19,10 +20,13 @@ logger.add(
     level="DEBUG"
 )
 
-async def main():
-    # Define date range - from January 1, 2022 to current date
-    end_date = datetime.now()  # Current date
-    start_date = datetime(2022, 1, 1)  # January 1, 2022
+async def extract_api_data(start_date=None, end_date=None):
+    """Extract legislative process data from the Senate API."""
+    # Set default dates if not provided
+    if start_date is None:
+        start_date = datetime(2022, 1, 1)  # Default to January 1, 2022
+    if end_date is None:
+        end_date = datetime.now()  # Current date
     
     logger.info(f"Starting data extraction from {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
     logger.info(f"Total days to process: {(end_date - start_date).days}")
@@ -59,6 +63,60 @@ async def main():
         except Exception as e:
             logger.error(f"Error during data extraction: {str(e)}")
             raise
+
+async def download_pdfs():
+    """Download PDF files for legislative processes."""
+    from src.download_pdfs import download_all_pdfs
+    await download_all_pdfs()
+
+async def extract_pdf_text(structured=False):
+    """Extract text from PDF files."""
+    if structured:
+        from src.extract_structured_pdf import process_pdf_files
+    else:
+        from src.extract_pdf_text import process_pdf_files
+    await process_pdf_files()
+
+async def main():
+    """Main function to parse arguments and execute the requested task."""
+    parser = argparse.ArgumentParser(description="Brazilian Legislative Data Processing Tool")
+    
+    # Create subparsers for different commands
+    subparsers = parser.add_subparsers(dest="command", help="Command to execute")
+    
+    # API data extraction command
+    api_parser = subparsers.add_parser("extract-api", help="Extract data from Senate API")
+    api_parser.add_argument("--start", help="Start date (YYYY-MM-DD)", default=None)
+    api_parser.add_argument("--end", help="End date (YYYY-MM-DD)", default=None)
+    
+    # PDF download command
+    pdf_parser = subparsers.add_parser("download-pdfs", help="Download PDF files")
+    
+    # PDF text extraction command
+    text_parser = subparsers.add_parser("extract-text", help="Extract text from PDFs")
+    text_parser.add_argument("--structured", action="store_true", help="Use structured extraction with metadata")
+    
+    # Parse arguments
+    args = parser.parse_args()
+    
+    # Execute the requested command
+    if args.command == "extract-api":
+        # Parse dates if provided
+        start_date = None
+        end_date = None
+        if args.start:
+            start_date = datetime.strptime(args.start, "%Y-%m-%d")
+        if args.end:
+            end_date = datetime.strptime(args.end, "%Y-%m-%d")
+        await extract_api_data(start_date, end_date)
+    elif args.command == "download-pdfs":
+        await download_pdfs()
+    elif args.command == "extract-text":
+        await extract_pdf_text(structured=args.structured)
+    else:
+        # Default to API extraction if no command provided
+        logger.info("No command specified. Running default data extraction.")
+        await extract_api_data()
 
 if __name__ == "__main__":
     try:
