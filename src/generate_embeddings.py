@@ -7,6 +7,7 @@ import numpy as np
 from dotenv import load_dotenv
 from loguru import logger
 import torch
+from tqdm import tqdm
 
 # Load environment variables
 load_dotenv()
@@ -16,7 +17,8 @@ logger.add("logs/embeddings.log", rotation="100 MB")
 
 class EmbeddingGenerator:
     def __init__(self):
-        self.model = SentenceTransformer('sentence-transformers/multilingual-MiniLM-L12-v2')
+        # Using DeBERTa-v3-large model with 1024 dimensions
+        self.model = SentenceTransformer('microsoft/deberta-v3-large')
         self.db_params = {
             'dbname': os.getenv('DB_NAME'),
             'user': os.getenv('DB_USER'),
@@ -24,9 +26,32 @@ class EmbeddingGenerator:
             'host': os.getenv('DB_HOST'),
             'port': os.getenv('DB_PORT')
         }
+        
+        # Optimize GPU usage
+        if torch.cuda.is_available():
+            self.device = 'cuda'
+            # Get GPU properties
+            gpu_properties = torch.cuda.get_device_properties(0)
+            self.batch_size = self._calculate_optimal_batch_size(gpu_properties.total_memory)
+            logger.info(f"Using GPU ({gpu_properties.name}) with {gpu_properties.total_memory / 1024**3:.1f}GB memory")
+            self.model = self.model.to(self.device)
+        else:
+            self.device = 'cpu'
+            self.batch_size = 16  # Smaller batch size for CPU due to larger model
+            logger.info("Using CPU for embedding generation")
+
+    def _calculate_optimal_batch_size(self, gpu_memory: int) -> int:
+        # Estimate batch size based on GPU memory (conservative estimate)
+        # DeBERTa-v3-large requires more memory per embedding
+        memory_per_embedding = 8 * 1024  # 8KB in bytes for the larger model
+        # Use 70% of available GPU memory
+        usable_memory = int(0.7 * gpu_memory)
+        optimal_batch_size = max(1, usable_memory // (memory_per_embedding * 2))
+        # Cap at reasonable maximum and ensure it's not too large for the model
+        return min(optimal_batch_size, 128)
 
     def get_connection(self):
-        return psycopg2.connect(**self.db_params)
+        return psycopg2.connect(**{k: v for k, v in self.db_params.items() if v is not None})
 
     def fetch_data(self) -> pd.DataFrame:
         query = """
@@ -85,8 +110,24 @@ class EmbeddingGenerator:
         # Create context texts
         contexts = df.apply(self.create_context_text, axis=1).tolist()
         
-        # Generate embeddings
-        embeddings = self.model.encode(contexts, show_progress_bar=True)
+        # Generate embeddings in batches
+        embeddings = []
+        for i in tqdm(range(0, len(contexts), self.batch_size), desc="Generating embeddings"):
+            batch = contexts[i:i + self.batch_size]
+            batch_embeddings = self.model.encode(
+                batch,
+                show_progress_bar=False,
+                convert_to_tensor=True,
+                device=self.device
+            )
+            embeddings.append(batch_embeddings.cpu().numpy())
+            
+            # Clear CUDA cache more frequently for the larger model
+            if self.device == 'cuda' and i % (self.batch_size * 5) == 0:
+                torch.cuda.empty_cache()
+        
+        # Combine all batches
+        embeddings = np.vstack(embeddings)
         
         # Create result dictionary
         result = {
@@ -96,7 +137,12 @@ class EmbeddingGenerator:
                 'institution_ids': df['id_institucion'].tolist(),
                 'country_ids': df['id_pais'].tolist(),
                 'theme_ids': df['id_tema'].tolist(),
-                'contexts': contexts
+                'contexts': contexts,
+                'model_info': {
+                    'name': 'microsoft/deberta-v3-large',
+                    'dimensions': 1024,
+                    'device': self.device
+                }
             }
         }
         
@@ -112,7 +158,8 @@ class EmbeddingGenerator:
             institution_ids=result['metadata']['institution_ids'],
             country_ids=result['metadata']['country_ids'],
             theme_ids=result['metadata']['theme_ids'],
-            contexts=result['metadata']['contexts']
+            contexts=result['metadata']['contexts'],
+            model_info=str(result['metadata']['model_info'])  # Convert dict to string for numpy storage
         )
 
 def main():
