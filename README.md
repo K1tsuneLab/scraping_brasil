@@ -1,168 +1,71 @@
-# Brazilian Legislative Data Pipeline
+# Brazilian Chamber of Deputies Propositions Scraper
 
-A comprehensive data pipeline for extracting, processing, and storing Brazilian Senate legislative data into a PostgreSQL database. This project handles the complete workflow from data extraction to database migration, with support for multilingual content (Portuguese to Spanish translation).
+This script fetches and processes propositions data from the Brazilian Chamber of Deputies REST API. It retrieves propositions for a specified year and saves them to a JSON file.
 
-## 🌟 Features
+## Requirements
 
-- Automated data extraction from Brazilian Senate's Open Data API
-- Robust PostgreSQL database integration
-- Data validation and cleaning
-- Portuguese to Spanish translation capabilities
-- Asynchronous processing for improved performance
-- Comprehensive error handling and logging
-- Progress tracking and reporting
-- Configurable through environment variables
+- Python 3.6+
+- `requests` library
+- `python-dateutil` library
 
-## 📋 Prerequisites
+## Installation
 
-- Python 3.8 or higher
-- PostgreSQL database
-- Internet connection for API access
-- API key for translation service (if using translation features)
-
-## 🚀 Quick Start
-
-1. **Clone the repository**
-   ```bash
-   git clone [your-repo-url]
-   cd scraping_brasil
-   ```
-
-2. **Set up virtual environment**
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Unix/macOS
-   # or
-   .\venv\Scripts\activate  # On Windows
-   ```
-
-3. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Configure environment variables**
-   Create a `.env` file in the project root:
-   ```env
-   DB_HOST=localhost
-   DB_PORT=5432
-   DB_NAME=postgres
-   DB_USER=postgres
-   DB_PASSWORD=your_password
-   ```
-
-5. **Run the data pipeline**
-   ```bash
-   python db_migration.py
-   ```
-
-## 🗄️ Project Structure
-
-```
-scraping_brasil/
-├── data/                   # Data storage
-│   ├── raw/               # Raw API data
-│   └── processed/         # Processed JSON files
-├── src/                   # Source code
-│   ├── api/              # API interaction modules
-│   ├── models/           # Data models
-│   ├── processors/       # Data processing logic
-│   └── utils/            # Utility functions
-├── logs/                  # Log files
-├── tests/                # Test suites
-├── .env                  # Environment configuration
-├── db_migration.py       # Database migration script
-├── requirements.txt      # Project dependencies
-└── README.md            # Project documentation
-```
-
-## 💾 Database Schema
-
-The project uses two main tables:
-
-### Gacetas Table
-- `id_gaceta` (Primary Key)
-- `id_pais` (Country identifier)
-- `numero_gaceta` (Gazette number)
-- `anio` (Year)
-- `fecha_publicacion` (Publication date)
-- `enlace_pdf` (PDF link)
-- `estado` (Status)
-- `id_institucion` (Institution identifier)
-
-### Proyectos Table
-- `id_proyecto` (Primary Key)
-- `numero_proyecto` (Project number)
-- `anio_legislativo` (Legislative year)
-- `titulo_proyecto` (Project title)
-- `autores_proyecto` (Project authors)
-
-## 🔧 Configuration
-
-The project uses environment variables for configuration. Create a `.env` file with the following variables:
-
-```env
-DB_HOST=your_host
-DB_PORT=your_port
-DB_NAME=your_database
-DB_USER=your_username
-DB_PASSWORD=your_password
-```
-
-## 📊 Data Processing
-
-The pipeline performs the following steps:
-1. Extracts data from the Brazilian Senate API
-2. Processes and validates the data
-3. Translates relevant content from Portuguese to Spanish
-4. Migrates the data to PostgreSQL database
-5. Handles duplicates and updates existing records
-
-## 🛠️ Usage Examples
-
-### Running the Database Migration
+1. Create a virtual environment (optional but recommended):
 ```bash
-python db_migration.py
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 ```
 
-### Data Extraction
+2. Install dependencies:
 ```bash
-python src/main.py extract-api --start 2023-02-01 --end 2025-05-21
+pip install -r requirements.txt
 ```
 
-### Translation
+## Usage
+
+The script is configured to fetch propositions for the year 2024 by default. You can modify the year range in the `main()` function of `scrape_proposicoes.py`:
+
+- `start_year`: First year to fetch data for
+- `end_year`: Last year to fetch data for
+
+To run the script:
+
 ```bash
-python src/main.py translate --file data/processed/senate_processes.json
+python scrape_proposicoes.py
 ```
 
-## 📝 Logging
+The script will:
+1. Connect to the Chamber of Deputies REST API
+2. Fetch propositions for the specified year(s)
+3. Process and clean the data
+4. Save all propositions to `proposicoes.json`
 
-The project includes comprehensive logging:
-- Success/failure of database operations
-- Processing statistics
-- Error tracking
-- Progress monitoring
+## Output
 
-Logs are stored in the `logs/` directory.
+The script generates a JSON file (`proposicoes.json`) containing an array of propositions. Each proposition includes:
+- `id`: Proposition ID
+- `siglaTipo`: Type of proposition (e.g., PL for Projeto de Lei)
+- `numero`: Proposition number
+- `ano`: Year
+- `ementa`: Description/summary
+- `dataApresentacao`: Presentation date
+- `uri`: API endpoint for more details
+- `uriAutores`: API endpoint for authors information
+- `statusProposicao`: Current status information including:
+  - Processing timestamp
+  - Sequence number
+  - Department code
+  - Processing regime
+  - Processing description
+  - Situation description
+  - Dispatch information
 
-## 🤝 Contributing
+## Error Handling
 
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+The script includes error handling for:
+- Network request failures (with retries)
+- API response validation
+- JSON parsing errors
+- File saving errors
 
-## 📄 License
-
-[Your License Here]
-
-## 📞 Support
-
-For support, please [create an issue](your-repo-issues-url) or contact the maintainers.
-
-## 🙏 Acknowledgments
-
-- Brazilian Senate Open Data API
-- Contributors and maintainers
-- Open source community
+Errors are logged to the console with appropriate messages.
