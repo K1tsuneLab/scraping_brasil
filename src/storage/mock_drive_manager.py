@@ -12,7 +12,7 @@ import asyncio
 from loguru import logger
 
 from .drive_interface import DriveInterface, DriveFileInfo
-from ..config.settings import settings
+from config.settings import settings
 
 class MockDriveManager(DriveInterface):
     """Mock implementation of Google Drive operations using local filesystem."""
@@ -101,8 +101,8 @@ class MockDriveManager(DriveInterface):
         return self.files_dir / file_id
     
     async def upload_file(self, file_content: Union[bytes, str, Path], 
-                         filename: str, folder_id: str = None, 
-                         mime_type: str = None) -> DriveFileInfo:
+                         filename: str, folder_id: Optional[str] = None, 
+                         mime_type: Optional[str] = None) -> DriveFileInfo:
         """Upload a file to mock storage."""
         file_id = self._generate_file_id()
         file_path = self._get_file_path(file_id)
@@ -157,7 +157,7 @@ class MockDriveManager(DriveInterface):
         logger.info(f"Uploaded file {filename} ({file_size} bytes) as {file_id}")
         return file_info
     
-    async def file_exists(self, filename: str, folder_id: str = None) -> Optional[DriveFileInfo]:
+    async def file_exists(self, filename: str, folder_id: Optional[str] = None) -> Optional[DriveFileInfo]:
         """Check if a file exists."""
         folder_id = folder_id or 'root'
         
@@ -169,7 +169,7 @@ class MockDriveManager(DriveInterface):
         
         return None
     
-    async def list_files(self, folder_id: str = None, query: str = None) -> List[DriveFileInfo]:
+    async def list_files(self, folder_id: Optional[str] = None, query: Optional[str] = None) -> List[DriveFileInfo]:
         """List files in a folder."""
         folder_id = folder_id or 'root'
         files = []
@@ -184,7 +184,7 @@ class MockDriveManager(DriveInterface):
         
         return files
     
-    async def create_folder(self, folder_name: str, parent_folder_id: str = None) -> str:
+    async def create_folder(self, folder_name: str, parent_folder_id: Optional[str] = None) -> str:
         """Create a new folder."""
         folder_id = self._generate_file_id().replace('file', 'folder')
         folder_path = self.files_dir / folder_name
@@ -263,8 +263,8 @@ class MockDriveManager(DriveInterface):
         }
     
     async def validate_file_integrity(self, file_info: DriveFileInfo, 
-                                    expected_size: int = None, 
-                                    expected_checksum: str = None) -> bool:
+                                    expected_size: Optional[int] = None, 
+                                    expected_checksum: Optional[str] = None) -> bool:
         """Validate file integrity."""
         if file_info.file_id not in self.metadata['files']:
             return False

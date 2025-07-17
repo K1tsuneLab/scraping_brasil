@@ -7,7 +7,7 @@ from loguru import logger
 
 from .drive_interface import DriveInterface
 from .mock_drive_manager import MockDriveManager
-from ..config.settings import settings
+from config.settings import settings
 
 class DriveFactory:
     """Factory for creating Drive manager instances."""
@@ -26,7 +26,7 @@ class DriveFactory:
         if mode is None:
             mode = settings.APP_MODE
         
-        mode = mode.lower()
+        mode = mode.lower() if mode else 'mock'
         
         if mode == 'mock':
             logger.info("Creating MockDriveManager (development mode)")

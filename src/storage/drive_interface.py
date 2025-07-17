@@ -38,8 +38,8 @@ class DriveInterface(ABC):
     
     @abstractmethod
     async def upload_file(self, file_content: Union[bytes, str, Path], 
-                         filename: str, folder_id: str = None, 
-                         mime_type: str = None) -> DriveFileInfo:
+                         filename: str, folder_id: Optional[str] = None, 
+                         mime_type: Optional[str] = None) -> DriveFileInfo:
         """
         Upload a file to Drive.
         
@@ -55,7 +55,7 @@ class DriveInterface(ABC):
         pass
     
     @abstractmethod
-    async def file_exists(self, filename: str, folder_id: str = None) -> Optional[DriveFileInfo]:
+    async def file_exists(self, filename: str, folder_id: Optional[str] = None) -> Optional[DriveFileInfo]:
         """
         Check if a file exists in the specified folder.
         
@@ -69,7 +69,7 @@ class DriveInterface(ABC):
         pass
     
     @abstractmethod
-    async def list_files(self, folder_id: str = None, query: str = None) -> List[DriveFileInfo]:
+    async def list_files(self, folder_id: Optional[str] = None, query: Optional[str] = None) -> List[DriveFileInfo]:
         """
         List files in a folder.
         
@@ -83,7 +83,7 @@ class DriveInterface(ABC):
         pass
     
     @abstractmethod
-    async def create_folder(self, folder_name: str, parent_folder_id: str = None) -> str:
+    async def create_folder(self, folder_name: str, parent_folder_id: Optional[str] = None) -> str:
         """
         Create a new folder.
         
@@ -145,8 +145,8 @@ class DriveInterface(ABC):
     
     @abstractmethod
     async def validate_file_integrity(self, file_info: DriveFileInfo, 
-                                    expected_size: int = None, 
-                                    expected_checksum: str = None) -> bool:
+                                    expected_size: Optional[int] = None, 
+                                    expected_checksum: Optional[str] = None) -> bool:
         """
         Validate file integrity using size and/or checksum.
         
