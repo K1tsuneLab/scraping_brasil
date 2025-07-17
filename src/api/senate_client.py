@@ -3,7 +3,7 @@ import asyncio
 from datetime import datetime
 from typing import List, Optional
 from loguru import logger
-from models.legislative_process import APIResponse, LegislativeProcess
+from ..models.legislative_process import APIResponse, LegislativeProcess
 
 class SenateAPIClient:
     """Client for interacting with the Brazilian Senate API."""

@@ -5,8 +5,8 @@ Handles automatic selection between mock and real implementations.
 from typing import Optional
 from loguru import logger
 
-from .drive_interface import DriveInterface
-from .mock_drive_manager import MockDriveManager
+from src.storage.drive_interface import DriveInterface
+from src.storage.mock_drive_manager import MockDriveManager
 from config.settings import settings
 
 class DriveFactory:
@@ -61,16 +61,18 @@ class DriveFactory:
             Exception: If credentials are not properly configured
         """
         try:
-            from .drive_manager import RealDriveManager
+            # TODO: Implement RealDriveManager for Google Drive integration
+            # from src.storage.drive_manager import RealDriveManager
             
             # Validate that credentials are available
             DriveFactory._validate_drive_credentials()
             
-            return RealDriveManager()
+            # For now, raise ImportError to trigger auto mode fallback
+            raise ImportError("RealDriveManager not yet implemented - this is expected in Phase 1")
             
         except ImportError as e:
-            logger.error("Google Drive dependencies not available. Install with: pip install google-auth-oauthlib google-auth google-api-python-client")
-            raise ImportError(f"Google Drive dependencies not available: {e}")
+            logger.error("Real Drive manager not yet implemented (Phase 2 feature)")
+            raise ImportError(f"Real Drive manager not available: {e}")
         
         except Exception as e:
             logger.error(f"Failed to create real Drive manager: {e}")

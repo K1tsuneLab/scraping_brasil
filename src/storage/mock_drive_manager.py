@@ -11,7 +11,7 @@ from typing import List, Dict, Any, Optional, Union
 import asyncio
 from loguru import logger
 
-from .drive_interface import DriveInterface, DriveFileInfo
+from src.storage.drive_interface import DriveInterface, DriveFileInfo
 from config.settings import settings
 
 class MockDriveManager(DriveInterface):

@@ -11,7 +11,7 @@ from loguru import logger
 project_root = Path(__file__).parent.parent.parent  # Go up to project root
 sys.path.append(str(project_root))
 
-from .translate_file_pt_to_es import translate_file_pt_to_es, translate_text_pt_to_es
+from src.utils.translate_file_pt_to_es import translate_file_pt_to_es, translate_text_pt_to_es
 
 async def translate_senate_data():
     """

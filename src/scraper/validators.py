@@ -10,7 +10,7 @@ from typing import Dict, List, Optional, Set, Tuple, Any
 from dataclasses import dataclass
 from loguru import logger
 
-from ..storage.drive_interface import DriveInterface, DriveFileInfo
+from src.storage.drive_interface import DriveInterface, DriveFileInfo
 from config.settings import settings
 
 @dataclass

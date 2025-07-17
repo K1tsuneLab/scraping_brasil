@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List
 from loguru import logger
-from ..models.legislative_process import LegislativeProcess
+from src.models.legislative_process import LegislativeProcess
 
 # Define Google Drive path
 GOOGLE_DRIVE_PATH = Path("/Users/jona/Google Drive/My Drive/Kitsune/Fase1_Estructuracion_base/Brasil/json")
