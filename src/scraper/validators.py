@@ -1,21 +1,40 @@
 """
-Document validation system for the Brazil scraping project.
-Handles duplicate detection, file integrity validation, and document filtering.
+Enhanced document validation system for the Brazil scraping project.
+Handles duplicate detection, file integrity validation, document filtering,
+input sanitization, and comprehensive data quality checks.
 """
 import hashlib
 import json
+import re
 from datetime import datetime, date
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple, Any
-from dataclasses import dataclass
-from loguru import logger
+from typing import Dict, List, Optional, Set, Tuple, Any, Union
+from dataclasses import dataclass, field
+from urllib.parse import urlparse
+
+# Setup logger
+try:
+    from src.utils.logger import get_logger
+    logger = get_logger('validator')
+except ImportError:
+    import logging
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger('validator')
+
+# Custom validation exception
+class DocumentValidationError(Exception):
+    """Custom exception for document validation errors."""
+    def __init__(self, message: str, field: Optional[str] = None, value: Any = None):
+        self.field = field
+        self.value = value
+        super().__init__(message)
 
 from src.storage.drive_interface import DriveInterface, DriveFileInfo
 from config.settings import settings
 
 @dataclass
 class DocumentMetadata:
-    """Metadata for a scraped document."""
+    """Enhanced metadata for a scraped document with validation."""
     id: str
     title: str
     date: str  # YYYY-MM-DD format
@@ -25,6 +44,89 @@ class DocumentMetadata:
     file_size: Optional[int] = None
     md5_checksum: Optional[str] = None
     scraped_at: Optional[str] = None
+    validation_errors: List[str] = field(default_factory=list)
+    quality_score: float = 0.0
+    
+    def __post_init__(self):
+        """Validate and sanitize data after initialization."""
+        self.validation_errors = []
+        self.quality_score = 0.0
+        
+        # Validate and sanitize each field
+        self._validate_and_sanitize()
+        self._calculate_quality_score()
+    
+    def _validate_and_sanitize(self):
+        """Validate and sanitize all fields."""
+        # Sanitize and validate ID
+        self.id = InputSanitizer.sanitize_text(self.id)
+        if not self.id or len(self.id.strip()) == 0:
+            self.validation_errors.append("Document ID cannot be empty")
+        
+        # Sanitize and validate title
+        self.title = InputSanitizer.sanitize_text(self.title)
+        if not self.title or len(self.title.strip()) < 5:
+            self.validation_errors.append("Document title too short (minimum 5 characters)")
+        
+        # Validate date format
+        if not InputValidator.is_valid_date(self.date):
+            self.validation_errors.append(f"Invalid date format: {self.date}")
+        
+        # Validate source
+        if self.source not in ['camara', 'senado']:
+            self.validation_errors.append(f"Invalid source: {self.source}")
+        
+        # Sanitize document type
+        self.document_type = InputSanitizer.sanitize_text(self.document_type)
+        
+        # Validate URL
+        if not InputValidator.is_valid_url(self.url):
+            self.validation_errors.append(f"Invalid URL: {self.url}")
+        
+        # Validate file size
+        if self.file_size is not None and self.file_size < 0:
+            self.validation_errors.append(f"Invalid file size: {self.file_size}")
+        
+        # Validate MD5 checksum format
+        if self.md5_checksum and not InputValidator.is_valid_md5(self.md5_checksum):
+            self.validation_errors.append(f"Invalid MD5 checksum format: {self.md5_checksum}")
+    
+    def _calculate_quality_score(self) -> None:
+        """Calculate a quality score based on completeness and validity."""
+        score = 0.0
+        max_score = 100.0
+        
+        # Basic fields (50 points)
+        if self.id and len(self.id.strip()) > 0:
+            score += 15
+        if self.title and len(self.title.strip()) >= 5:
+            score += 15
+        if InputValidator.is_valid_date(self.date):
+            score += 10
+        if InputValidator.is_valid_url(self.url):
+            score += 10
+        
+        # Optional but valuable fields (30 points)
+        if self.file_size and self.file_size > 0:
+            score += 10
+        if self.md5_checksum and InputValidator.is_valid_md5(self.md5_checksum):
+            score += 10
+        if self.scraped_at:
+            score += 10
+        
+        # Penalize validation errors (20 points)
+        error_penalty = min(20, len(self.validation_errors) * 5)
+        score = max(0, score - error_penalty)
+        
+        # Bonus for comprehensive data
+        if score >= 80 and len(self.validation_errors) == 0:
+            score += 20
+        
+        self.quality_score = min(max_score, score)
+    
+    def is_valid(self) -> bool:
+        """Check if the document metadata is valid."""
+        return len(self.validation_errors) == 0 and self.quality_score >= 50.0
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary representation."""
@@ -37,8 +139,137 @@ class DocumentMetadata:
             'url': self.url,
             'file_size': self.file_size,
             'md5_checksum': self.md5_checksum,
-            'scraped_at': self.scraped_at
+            'scraped_at': self.scraped_at,
+            'validation_errors': self.validation_errors,
+            'quality_score': self.quality_score
         }
+
+
+class InputValidator:
+    """Static methods for input validation."""
+    
+    @staticmethod
+    def is_valid_date(date_str: str) -> bool:
+        """Validate date string in YYYY-MM-DD format."""
+        if not date_str:
+            return False
+        try:
+            datetime.strptime(date_str, '%Y-%m-%d')
+            return True
+        except ValueError:
+            return False
+    
+    @staticmethod
+    def is_valid_url(url: str) -> bool:
+        """Validate URL format."""
+        if not url:
+            return False
+        try:
+            result = urlparse(url)
+            return all([result.scheme, result.netloc])
+        except Exception:
+            return False
+    
+    @staticmethod
+    def is_valid_md5(checksum: str) -> bool:
+        """Validate MD5 checksum format."""
+        if not checksum:
+            return False
+        return bool(re.match(r'^[a-fA-F0-9]{32}$', checksum))
+    
+    @staticmethod
+    def is_valid_email(email: str) -> bool:
+        """Validate email format."""
+        if not email:
+            return False
+        pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        return bool(re.match(pattern, email))
+    
+    @staticmethod
+    def is_safe_filename(filename: str) -> bool:
+        """Check if filename is safe for filesystem."""
+        if not filename:
+            return False
+        # Check for dangerous characters and patterns
+        dangerous_chars = r'[<>:"/\\|?*\x00-\x1f]'
+        dangerous_names = {'CON', 'PRN', 'AUX', 'NUL', 'COM1', 'COM2', 'COM3', 'COM4', 
+                          'COM5', 'COM6', 'COM7', 'COM8', 'COM9', 'LPT1', 'LPT2', 
+                          'LPT3', 'LPT4', 'LPT5', 'LPT6', 'LPT7', 'LPT8', 'LPT9'}
+        
+        if re.search(dangerous_chars, filename):
+            return False
+        
+        if filename.upper() in dangerous_names:
+            return False
+        
+        if filename.startswith('.') or filename.endswith('.'):
+            return False
+        
+        return len(filename) <= 255
+
+
+class InputSanitizer:
+    """Static methods for input sanitization."""
+    
+    @staticmethod
+    def sanitize_text(text: str) -> str:
+        """Sanitize text input by removing dangerous characters."""
+        if not text:
+            return ""
+        
+        # Remove control characters
+        text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]', '', text)
+        
+        # Remove excessive whitespace
+        text = re.sub(r'\s+', ' ', text)
+        
+        # Strip leading/trailing whitespace
+        text = text.strip()
+        
+        return text
+    
+    @staticmethod
+    def sanitize_filename(filename: str) -> str:
+        """Sanitize filename for safe filesystem usage."""
+        if not filename:
+            return "unnamed_file"
+        
+        # Replace dangerous characters with underscores
+        sanitized = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '_', filename)
+        
+        # Remove multiple consecutive underscores
+        sanitized = re.sub(r'_+', '_', sanitized)
+        
+        # Remove leading/trailing dots and underscores
+        sanitized = sanitized.strip('._')
+        
+        # Ensure not empty and not too long
+        if not sanitized:
+            sanitized = "unnamed_file"
+        
+        if len(sanitized) > 255:
+            name, ext = sanitized.rsplit('.', 1) if '.' in sanitized else (sanitized, '')
+            max_name_length = 255 - len(ext) - 1 if ext else 255
+            sanitized = name[:max_name_length] + ('.' + ext if ext else '')
+        
+        return sanitized
+    
+    @staticmethod
+    def sanitize_html(html: str) -> str:
+        """Basic HTML sanitization (removes script tags and dangerous attributes)."""
+        if not html:
+            return ""
+        
+        # Remove script tags and their content
+        html = re.sub(r'<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>', '', html, flags=re.IGNORECASE)
+        
+        # Remove dangerous attributes
+        html = re.sub(r'\bon\w+\s*=\s*["\'][^"\']*["\']', '', html, flags=re.IGNORECASE)
+        
+        # Remove javascript: URLs
+        html = re.sub(r'javascript:', '', html, flags=re.IGNORECASE)
+        
+        return html
 
 class DocumentValidator:
     """Validates documents for duplicates and integrity."""

@@ -1,17 +1,37 @@
 """
 Centralized configuration management for the Brazil Scraping project.
+Provides validated, type-safe configuration with environment variable support.
 """
 import os
 from pathlib import Path
 from datetime import datetime, date
-from typing import Optional
+from typing import Optional, List, Dict, Any, Callable
+from dataclasses import dataclass
 from dotenv import load_dotenv
+
+# Configuration validation utilities
+class ConfigurationError(Exception):
+    """Raised when configuration validation fails."""
+    pass
+
+def raise_configuration_error(message: str, setting: Optional[str] = None, value: Any = None):
+    """Raise a configuration error with details."""
+    details = f" (setting: {setting}, value: {value})" if setting else ""
+    raise ConfigurationError(f"{message}{details}")
 
 # Load environment variables from .env file
 load_dotenv()
 
+@dataclass
+class ValidationRule:
+    """Represents a configuration validation rule."""
+    name: str
+    validator: Callable[[Any], bool]
+    error_message: str
+
+
 class Settings:
-    """Centralized settings management."""
+    """Centralized settings management with validation."""
     
     # Project paths
     PROJECT_ROOT = Path(__file__).parent.parent
@@ -90,6 +110,124 @@ class Settings:
     def is_auto_mode(cls) -> bool:
         """Check if running in auto mode."""
         return cls.APP_MODE.lower() == 'auto'
+    
+    @classmethod
+    def validate_configuration(cls) -> List[str]:
+        """Validate all configuration settings and return list of errors."""
+        errors = []
+        
+        # Define validation rules
+        validation_rules = [
+            ValidationRule(
+                name="APP_MODE",
+                validator=lambda x: x.lower() in ['mock', 'real', 'auto'],
+                error_message="APP_MODE must be one of: mock, real, auto"
+            ),
+            ValidationRule(
+                name="LOG_LEVEL",
+                validator=lambda x: x.upper() in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
+                error_message="LOG_LEVEL must be one of: DEBUG, INFO, WARNING, ERROR, CRITICAL"
+            ),
+            ValidationRule(
+                name="MAX_CONCURRENT_DOWNLOADS",
+                validator=lambda x: 1 <= x <= 20,
+                error_message="MAX_CONCURRENT_DOWNLOADS must be between 1 and 20"
+            ),
+            ValidationRule(
+                name="RETRY_ATTEMPTS",
+                validator=lambda x: 0 <= x <= 10,
+                error_message="RETRY_ATTEMPTS must be between 0 and 10"
+            ),
+            ValidationRule(
+                name="API_TIMEOUT",
+                validator=lambda x: 5 <= x <= 300,
+                error_message="API_TIMEOUT must be between 5 and 300 seconds"
+            ),
+            ValidationRule(
+                name="DEFAULT_START_DATE",
+                validator=cls._validate_date_format,
+                error_message="DEFAULT_START_DATE must be in YYYY-MM-DD format"
+            )
+        ]
+        
+        # Validate each rule
+        for rule in validation_rules:
+            try:
+                value = getattr(cls, rule.name)
+                if not rule.validator(value):
+                    errors.append(f"{rule.error_message} (current: {value})")
+            except Exception as e:
+                errors.append(f"Error validating {rule.name}: {str(e)}")
+        
+        # Validate directory permissions
+        try:
+            cls.ensure_directories_exist()
+        except Exception as e:
+            errors.append(f"Directory creation failed: {str(e)}")
+        
+        # Validate date range
+        try:
+            start_date = datetime.strptime(cls.DEFAULT_START_DATE, '%Y-%m-%d').date()
+            end_date = datetime.strptime(cls.get_end_date(), '%Y-%m-%d').date()
+            if start_date >= end_date:
+                errors.append(f"Start date ({start_date}) must be before end date ({end_date})")
+        except Exception as e:
+            errors.append(f"Date range validation failed: {str(e)}")
+        
+        # Validate Google Drive settings if in real mode
+        if cls.is_real_mode():
+            if not cls.GOOGLE_DRIVE_FOLDER_ID:
+                errors.append("GOOGLE_DRIVE_FOLDER_ID is required in real mode")
+            if not Path(cls.GOOGLE_CREDENTIALS_PATH).exists():
+                errors.append(f"Google credentials file not found: {cls.GOOGLE_CREDENTIALS_PATH}")
+        
+        return errors
+    
+    @staticmethod
+    def _validate_date_format(date_str: str) -> bool:
+        """Validate date string format."""
+        try:
+            datetime.strptime(date_str, '%Y-%m-%d')
+            return True
+        except ValueError:
+            return False
+    
+    @classmethod
+    def validate_and_raise(cls) -> None:
+        """Validate configuration and raise error if invalid."""
+        errors = cls.validate_configuration()
+        if errors:
+            error_message = "Configuration validation failed:\n" + "\n".join(f"- {error}" for error in errors)
+            raise_configuration_error(error_message)
+    
+    @classmethod
+    def get_configuration_summary(cls) -> Dict[str, Any]:
+        """Get a summary of current configuration."""
+        return {
+            'mode': cls.APP_MODE,
+            'log_level': cls.LOG_LEVEL,
+            'date_range': {
+                'start': cls.DEFAULT_START_DATE,
+                'end': cls.get_end_date()
+            },
+            'paths': {
+                'project_root': str(cls.PROJECT_ROOT),
+                'data_raw': str(cls.DATA_RAW_PATH),
+                'data_processed': str(cls.DATA_PROCESSED_PATH),
+                'mock_storage': str(cls.MOCK_STORAGE_PATH),
+                'logs': str(cls.LOG_PATH)
+            },
+            'api_settings': {
+                'timeout': cls.API_TIMEOUT,
+                'rate_limit_delay': cls.API_RATE_LIMIT_DELAY,
+                'max_concurrent_downloads': cls.MAX_CONCURRENT_DOWNLOADS
+            },
+            'google_drive': {
+                'folder_id': cls.GOOGLE_DRIVE_FOLDER_ID or 'Not configured',
+                'credentials_path': cls.GOOGLE_CREDENTIALS_PATH,
+                'token_path': cls.GOOGLE_TOKEN_PATH
+            }
+        }
 
 # Create global settings instance
 settings = Settings()

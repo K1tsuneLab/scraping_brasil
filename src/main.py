@@ -1,12 +1,12 @@
 """
 Main coordination script for the Brazil Scraping project.
 Coordinates all components: scraping, validation, translation, and storage.
+Enhanced with logging, performance monitoring, and error handling.
 """
 import asyncio
 import sys
 from pathlib import Path
 from datetime import datetime
-from loguru import logger
 from typing import List, Dict, Any
 
 # Add the project root to Python path
@@ -20,6 +20,15 @@ from src.utils.date_utils import get_date_range_since_2024
 from src.api.senate_client import SenateAPIClient
 from src.processors.data_processor import DataProcessor
 from src.utils.translate_file_pt_to_es import translate_file_pt_to_es
+
+# Setup enhanced logging and monitoring
+try:
+    from src.utils.logger import get_logger
+    logger = get_logger('coordinator')
+except ImportError:
+    import logging
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger('coordinator')
 
 class BrazilScrapingCoordinator:
     """Main coordinator for the Brazil scraping system."""
@@ -242,7 +251,7 @@ class BrazilScrapingCoordinator:
             report = await self.generate_report()
             
             # 5. Summary
-            logger.success("✅ Scraping pipeline completed successfully!")
+            logger.info("✅ Scraping pipeline completed successfully!")
             logger.info(f"📋 Summary:")
             logger.info(f"  - Total scraped: {len(all_documents)}")
             logger.info(f"  - New documents: {len(new_documents)}")
@@ -276,7 +285,7 @@ async def main():
     result = await coordinator.run_full_scraping_pipeline()
     
     if result['success']:
-        logger.success("🎉 All operations completed successfully!")
+        logger.info("🎉 All operations completed successfully!")
         return 0
     else:
         logger.error(f"💥 Pipeline failed: {result.get('error', 'Unknown error')}")

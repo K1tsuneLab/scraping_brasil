@@ -1,0 +1,24 @@
+{
+  "files": {
+    "mock_file_6": {
+      "file_id": "mock_file_6",
+      "name": "system_test.txt",
+      "size": 37,
+      "created_time": "2025-07-17T19:12:46.469146",
+      "modified_time": "2025-07-17T19:12:46.469146",
+      "mime_type": "application/octet-stream",
+      "md5_checksum": "741e8b29b633db910ce771f7a36cb619",
+      "folder_id": "root",
+      "local_path": "/Users/jona/Desktop/Projects/kitsune_projects/scraping_brasil/mock_storage/files/mock_file_6"
+    }
+  },
+  "folders": {
+    "root": "mock_root_id",
+    "documentos_camara": "mock_folder_1",
+    "documentos_senado": "mock_folder_2",
+    "processed_data": "mock_folder_3",
+    "translations": "mock_folder_4",
+    "logs": "mock_folder_5"
+  },
+  "next_id": 7
+}
